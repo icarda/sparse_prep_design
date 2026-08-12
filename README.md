@@ -30,10 +30,10 @@ Two key tuning parameters are:
 > _2. Jarquin et al. (2020). Genomic Prediction Enhanced Sparse Testing for Multi-environment Trials. G3: Genes | Genomes | Genetics, 10(8), 2725–2739. https://doi.org/10.1534/g3.120.401349_
 
 ### 2. Generate Spatial Design(s)
-Generate the required randomization(s) by setting the location ID in cell _B26_ of the Scenario Builder file. Then, copy the script lines from the range _A28:A64_ into your R console and execute the code to produce the corresponding field book and layout using the [DiGGer package](http://nswdpibiom.org/austatgen/software). Please note that this step remains semi-automated for now, but we aim to fully automate it in future.
+Generate the required randomization(s) by setting the location ID in cell _B29_ of the Scenario Builder file. Then, copy the script lines from the range _A31:A67_ into your R console and execute the code to produce the corresponding field book and layout using the [DiGGer package](http://nswdpibiom.org/austatgen/software). Please note that this step remains semi-automated for now, but we aim to fully automate it in future.
 
 ### 3. Allocate Test Entries
-To allocate entries according to the structure defined in the previous Scenario Builder (rows 20-24), run the `Test_entries_allocate.R` script. This script requires two input files: a list of candidate entries (e.g., `FFMPYT-26 Entries.csv`) and a pedigree matrix (e.g., `FFMPYT-26 Pedigree Matrix.csv.gz`).
+To allocate entries according to the structure defined in the previous Scenario Builder (rows 23-27), run the `Test_entries_allocate.R` script. This script requires two input files: a list of candidate entries (e.g., `FFMPYT-26 Entries.csv`) and a pedigree matrix (e.g., `FFMPYT-26 Pedigree Matrix.csv.gz`).
 
 > ___Note:__ A regular CSV file can be used instead of the compressed .gz version. However, compression typically reduces such file size to less than 1% of the original, which is recommended for handling large pedigree matrices efficiently._
 
