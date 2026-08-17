@@ -51,3 +51,5 @@ GitHub repository. https://github.com/icarda/sparse_prep_design
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.  
 You may use, modify, and redistribute this software under the terms of this license. Any derivative work must also be released under GPL-3.0. See the `LICENSE` file for the full license text.
 
+## User Interface
+![Shiny app Interface](screenshot.png)
