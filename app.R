@@ -80,6 +80,7 @@ MAX_PEDIGREE_FILE_SIZE_MB <- 200
 
 # Ratio thresholds for the design quality messages (Req 13, Req 22)
 THRESHOLD_REPLICATION_WARNING   <- 15   # Replication Ratio warning below 15%
+THRESHOLD_REPLICATION_ERROR     <- 10   # Replication Ratio error below 10%
 THRESHOLD_CONNECTIVITY_WARNING  <- 15   # Connectivity Ratio warning below 15%
 THRESHOLD_CONNECTIVITY_ERROR    <- 10   # Connectivity Ratio error below 10%
 
@@ -110,6 +111,16 @@ icarda_logo_tag <- function() {
     height = "64px",
     alt    = "ICARDA",
     style  = "margin-right: 12px; vertical-align: middle;"
+  )
+}
+
+icarda_favicon_tag <- function() {
+  tags$head(
+    tags$link(
+      rel  = "icon",
+      type = "image/png",
+      href = paste0("data:image/png;base64,", ICARDA_LOGO_B64)
+    )
   )
 }
 
@@ -256,6 +267,28 @@ compute_scenario <- function(params) {
     block_size_summary    = block_size_summary
   )
 }
+
+possible_scenarios <- function(params) {
+  locations     <- scenario_num(params$locations)
+  test_entries  <- scenario_num(params$test_entries)
+  check_entries <- scenario_num(params$check_entries)
+  blocks        <- scenario_num(params$blocks)
+  field_rows    <- scenario_num(params$field_rows)
+  field_cols    <- scenario_num(params$field_cols)
+
+  max_cross <- floor((locations * ((field_rows * field_cols) - (blocks * check_entries)) - locations * (blocks - 1) - test_entries) / (locations - 1))
+  
+  scenarios <- data.frame(cross_options = integer(0), prep_options = integer(0))
+  
+  if (!is.na(max_cross)) {
+    for (cross in 1:max_cross) {
+      prep <- (locations * ((field_rows * field_cols) - (blocks * check_entries)) - test_entries - cross * (locations - 1)) / (locations * (blocks - 1))
+      if (prep %% 1 == 0) scenarios <- rbind(scenarios, data.frame(cross_options = cross, prep_options = prep))
+    }
+  }
+
+  return(scenarios)
+}  
 
 #' Build the entry-type plot budget table (4 rows)
 #'
@@ -547,19 +580,27 @@ validate_plot_budget <- function(params, derived) {
   replication_pct  <- derived$replication_ratio  * 100
   connectivity_pct <- derived$connectivity_ratio * 100
 
-  if (!is.na(replication_pct) && replication_pct < THRESHOLD_REPLICATION_WARNING) {
-    warnings <- c(warnings, sprintf(
-      paste0("Replication Ratio (%.1f%%) is below the recommended minimum of %d%% ",
-             "(Cullis et al., 2006)."),
-      replication_pct, THRESHOLD_REPLICATION_WARNING
-    ))
+  if (!is.na(replication_pct)) {
+    if (replication_pct < THRESHOLD_REPLICATION_ERROR) {
+      errors <- c(errors, sprintf(
+        paste0("Replication Ratio (%.1f%%) is below %d%%; prediction accuracy and ",
+               "model stability decline significantly below %d%% (Cullis et al., 2006)."),
+        replication_pct, THRESHOLD_REPLICATION_ERROR, THRESHOLD_REPLICATION_ERROR
+      ))
+    } else if (replication_pct < THRESHOLD_REPLICATION_WARNING) {
+      warnings <- c(warnings, sprintf(
+        paste0("Replication Ratio (%.1f%%) is below the recommended minimum of %d%% ",
+               "(Cullis et al., 2006)."),
+        replication_pct, THRESHOLD_REPLICATION_WARNING
+      ))
+    }
   }
-
+  
   if (!is.na(connectivity_pct)) {
     if (connectivity_pct < THRESHOLD_CONNECTIVITY_ERROR) {
       errors <- c(errors, sprintf(
         paste0("Connectivity Ratio (%.1f%%) is below %d%%; prediction accuracy and ",
-               "model stability decline significantly below %d%%."),
+               "model stability decline significantly below %d%% (Jarquin et al., 2020)."),
         connectivity_pct, THRESHOLD_CONNECTIVITY_ERROR, THRESHOLD_CONNECTIVITY_ERROR
       ))
     } else if (connectivity_pct < THRESHOLD_CONNECTIVITY_WARNING) {
@@ -720,7 +761,10 @@ validate_entries <- function(df) {
     n             = nrow(df),
     min_available = if (nrow(df) > 0) min(df$Available) else NA_real_,
     max_available = if (nrow(df) > 0) max(df$Available) else NA_real_,
-    n_families    = length(unique(df$Family))
+    n_families    = length(unique(df$Family)),
+    min_families  = if (nrow(df) > 0) min(table(df$Family)) else NA_integer_,
+    max_families  = if (nrow(df) > 0) max(table(df$Family)) else NA_integer_,
+    avg_families  = if (nrow(df) > 0) round(mean(table(df$Family)),1) else NA_real_
   )
 
   return(list(valid = TRUE, data = df, summary = summary, errors = character()))
@@ -2045,6 +2089,14 @@ app_css <- function() {
     .about-section h3 { margin-top: 24px; }
     .citation { font-style: italic; background: #f7f7f7; padding: 8px 10px;
                 border-left: 3px solid #999; }
+    .results-single-page { width: 100%; overflow-x: hidden; }
+    .results-section { width: 100%; margin-bottom: 32px; padding-bottom: 24px;
+                       border-bottom: 1px solid #e0e0e0; }
+    .results-section:last-child { border-bottom: none; margin-bottom: 0; }
+    .results-section > h3 { font-size: 1.3em; margin-top: 0;
+                            margin-bottom: 16px; padding-top: 8px; }
+    .results-section .table-responsive,
+    .results-section .dataTables_wrapper { overflow-x: auto; }
   "))
 }
 
@@ -2070,9 +2122,9 @@ scenario_panel_ui <- function(id) {
       ui_hint("Three columns are mandatory:"),
       tags$ul(
         class = "ui-hint",
-        tags$li(tags$strong("Code"), " \u2014 the unique entry identifier."),
-        tags$li(tags$strong("SELHIS"), " \u2014 the selection history, hyphen-separated."),
-        tags$li(tags$strong("Available"), " \u2014 the available seed quantity in grams, a positive number.")
+        tags$li(tags$strong("Code:"), " the unique entry identifier."),
+        tags$li(tags$strong("SELHIS:"), " the selection history, hyphen-separated (Van Ginkel et al., 2002)."),
+        tags$li(tags$strong("Available:"), " the available seed quantity in grams, a positive number.")
       ),
       ui_hint("Example data row:"),
       tags$div(
@@ -2080,7 +2132,7 @@ scenario_panel_ui <- function(id) {
         "FFM2600001, ICB23-0484-9765SBR-9718SBR-16392SBR, 142"
       ),
       uiOutput(ns("entries_summary")),
-      uiOutput(ns("entries_messages"))
+      uiOutput(ns("entries_messages")),
     ),
 
     # -- 2. Pedigree matrix upload --------------------------------------------
@@ -2127,81 +2179,41 @@ scenario_panel_ui <- function(id) {
       numericInput(ns("locations"), SCENARIO_LABELS[["locations"]],
                    value = 7, min = PARAM_MINIMUMS$locations, step = 1),
       uiOutput(ns("error_locations")),
-
-      numericInput(ns("check_entries"), SCENARIO_LABELS[["check_entries"]],
-                   value = 8, min = PARAM_MINIMUMS$check_entries, step = 1),
-      uiOutput(ns("error_check_entries")),
-
-      numericInput(ns("cross_entries"), SCENARIO_LABELS[["cross_entries"]],
-                   value = 51, min = PARAM_MINIMUMS$cross_entries, step = 1),
-      uiOutput(ns("error_cross_entries")),
-
-      numericInput(ns("prep_per_loc"), SCENARIO_LABELS[["prep_per_loc"]],
-                   value = 54, min = PARAM_MINIMUMS$prep_per_loc, step = 1),
-      uiOutput(ns("error_prep_per_loc")),
-
+      
       numericInput(ns("blocks"), SCENARIO_LABELS[["blocks"]],
                    value = 2, min = PARAM_MINIMUMS$blocks, step = 1),
-      uiOutput(ns("error_blocks"))
-    ),
-
-    # -- 9-10. Field and block dimensions -------------------------------------
-    tags$div(
-      class = "panel-block",
-      tags$h4("4. Field Layout"),
+      uiOutput(ns("error_blocks")),
+      
+      # -- 9-10. Field and block dimensions -------------------------------------
       tags$div(
-        class = "ui-note",
-        "All locations share identical field and block dimensions."
+        class = "panel-block",
+        tags$h4("Field Layout"),
+        tags$div(
+          class = "ui-note",
+          "All locations share identical field and block dimensions."
+        ),
+        fluidRow(
+          column(4, numericInput(ns("field_rows"), "Field Rows",
+                                 value = 20, min = PARAM_MINIMUMS$field_rows, step = 1)),
+          column(4, numericInput(ns("field_cols"), "Field Columns",
+                                 value = 20, min = PARAM_MINIMUMS$field_cols, step = 1)),
+          column(4, tags$span(tags$b(SCENARIO_LABELS[["field_plots"]]), tags$div(style = "margin-top: 10px;", textOutput(ns("derived_field_plots"), inline = TRUE))))
+        ),
+        uiOutput(ns("error_field_rows")),
+        uiOutput(ns("error_field_cols")),
+        fluidRow(
+          column(4, numericInput(ns("block_rows"), "Block Rows",
+                                 value = 20, min = PARAM_MINIMUMS$block_rows, step = 1)),
+          column(4, numericInput(ns("block_cols"), "Block Columns",
+                                 value = 10, min = PARAM_MINIMUMS$block_cols, step = 1)),
+          column(4, tags$span(tags$b(SCENARIO_LABELS[["block_plots"]]), tags$div(style = "margin-top: 10px;", textOutput(ns("derived_block_plots"), inline = TRUE))))
+        ),
+        uiOutput(ns("error_block_rows")),
+        uiOutput(ns("error_block_cols"))
       ),
-      fluidRow(
-        column(6, numericInput(ns("field_rows"), "Field Rows",
-                               value = 20, min = PARAM_MINIMUMS$field_rows, step = 1)),
-        column(6, numericInput(ns("field_cols"), "Field Columns",
-                               value = 20, min = PARAM_MINIMUMS$field_cols, step = 1))
-      ),
-      uiOutput(ns("error_field_rows")),
-      uiOutput(ns("error_field_cols")),
-      fluidRow(
-        column(6, numericInput(ns("block_rows"), "Block Rows",
-                               value = 20, min = PARAM_MINIMUMS$block_rows, step = 1)),
-        column(6, numericInput(ns("block_cols"), "Block Columns",
-                               value = 10, min = PARAM_MINIMUMS$block_cols, step = 1))
-      ),
-      uiOutput(ns("error_block_rows")),
-      uiOutput(ns("error_block_cols"))
-    ),
-
-    # -- 11. Derived values ---------------------------------------------------
-    # Captions are the verbatim Scenario Builder labels (Req 6.8). They are
-    # static; only the numbers come from the server.
-    tags$div(
-      class = "panel-block",
-      tags$h4("5. Derived values"),
-      ui_derived_row(SCENARIO_LABELS[["common_per_loc"]],     ns("derived_common_per_loc")),
-      ui_derived_row(SCENARIO_LABELS[["unrep_per_loc"]],      ns("derived_unrep_per_loc")),
-      ui_derived_row(SCENARIO_LABELS[["pure_test"]],          ns("derived_pure_test")),
-      ui_derived_row(SCENARIO_LABELS[["replication_ratio"]],  ns("derived_replication_ratio")),
-      ui_derived_row(SCENARIO_LABELS[["connectivity_ratio"]], ns("derived_connectivity_ratio")),
-      ui_derived_row(SCENARIO_LABELS[["field_plots"]],        ns("derived_field_plots")),
-      ui_derived_row(SCENARIO_LABELS[["block_plots"]],        ns("derived_block_plots")),
-      # Block size summary line plus the ratio threshold messages (Req 6.9, 13).
-      uiOutput(ns("derived_values"))
-    ),
-
-    # -- 12. Required plots per location and the gate status ------------------
-    # Sits immediately before the seed input (Req 7.5).
-    tags$div(
-      class = "panel-block",
-      tags$h4("6. Plot budget"),
-      ui_derived_row(SCENARIO_LABELS[["required_plots"]], ns("derived_required_plots")),
-      tags$div(class = "gate-block", uiOutput(ns("required_plots_status")))
-    ),
-
-    # -- 13. Seed grams per plot ----------------------------------------------
-    # value = NULL so the control starts empty (Req 10.1).
-    tags$div(
-      class = "panel-block",
-      tags$h4("7. Seed and check names"),
+      
+      # -- 13. Seed grams per plot ----------------------------------------------
+      # value = NULL so the control starts empty (Req 10.1).
       numericInput(ns("seed_per_plot"), "Seed grams per plot",
                    value = NULL, min = PARAM_MINIMUMS$seed_per_plot, step = 0.1),
       ui_hint(paste(
@@ -2210,6 +2222,10 @@ scenario_panel_ui <- function(id) {
       )),
       uiOutput(ns("error_seed_per_plot")),
 
+      numericInput(ns("check_entries"), SCENARIO_LABELS[["check_entries"]],
+                   value = 8, min = PARAM_MINIMUMS$check_entries, step = 1),
+      uiOutput(ns("error_check_entries")),
+      
       # -- 14. Check entry names ----------------------------------------------
       textInput(ns("check_names"), "Check entry names (optional)",
                 value = "", placeholder = "Cham1, Cham3, Douma1"),
@@ -2217,13 +2233,54 @@ scenario_panel_ui <- function(id) {
         "A comma-separated list, one name per check entry.",
         "Leave it blank and the checks are named check1 through checkN."
       )),
-      uiOutput(ns("check_names_message"))
+      uiOutput(ns("check_names_message")),
+
+      tagList(
+        sliderInput(inputId = ns("scenario_index"), label = "Scenario Selection", min = 1, max = 1, value = 1, step = 1, ticks = TRUE),
+        # Left and right labels below slider
+        tags$div(
+          style = "display: flex; justify-content: space-between; margin-top: -30px; font-size: 0.85em; color: #666;",
+          tags$span("More P-Rep test entries"),
+          tags$span("More cross locations entries")
+        )
+      ),
+      
+      uiOutput(ns("scenario_options_error")),
+      
+      fluidRow(
+        column(6, tagAppendAttributes(
+          numericInput(ns("cross_entries"), SCENARIO_LABELS[["cross_entries"]], value = 0),
+          readonly = "readonly", style = "pointer-events: none"
+        )),
+        column(6, tagAppendAttributes(
+          numericInput(ns("prep_per_loc"), SCENARIO_LABELS[["prep_per_loc"]], value = 0),
+          readonly = "readonly", style = "pointer-events: none"
+        ))
+      ),
+      uiOutput(ns("error_cross_entries")),
+      uiOutput(ns("error_prep_per_loc")),
+      
+      # -- 11. Derived values ---------------------------------------------------
+      # Captions are the verbatim Scenario Builder labels (Req 6.8). They are
+      # static; only the numbers come from the server.
+      ui_derived_row(SCENARIO_LABELS[["replication_ratio"]],  ns("derived_replication_ratio")),
+      ui_derived_row(SCENARIO_LABELS[["connectivity_ratio"]], ns("derived_connectivity_ratio")),
+      uiOutput(ns("derived_values"))
+    ),
+
+    # -- 12. Required plots per location and the gate status ------------------
+    # Sits immediately before the seed input (Req 7.5).
+    tags$div(
+      class = "panel-block",
+      tags$h4("4. Plot budget"),
+      ui_derived_row(SCENARIO_LABELS[["required_plots"]], ns("derived_required_plots")),
+      tags$div(class = "gate-block", uiOutput(ns("required_plots_status")))
     ),
 
     # -- 15. Actions ----------------------------------------------------------
     tags$div(
       class = "panel-block",
-      tags$h4("8. Run"),
+      tags$h4("5. Run"),
       actionButton(ns("allocate_btn"), "Allocate Entries", class = "btn-success"),
       tags$span(" "),
       actionButton(ns("generate_btn"), "Generate Design", class = "btn-primary"),
@@ -2238,26 +2295,46 @@ scenario_panel_ui <- function(id) {
         )
       ),
       uiOutput(ns("action_blockers"))
+    ),
+    
+    tags$div(
+      class = "panel-block",
+      tags$h4("6. Referencies"),
+      
+      tags$ul(
+        tags$li(style = "margin-bottom: 12px;",
+          tags$i("Cullis et al. (2006). On the Design of Early Generation Variety Trials with Correlated Data. Journal of Agricultural, Biological, and Environmental Statistics, 11(4), 381–393.")
+        ),
+        tags$li(style = "margin-bottom: 12px;",
+          tags$span(tags$i("Jarquin et al. (2020). Genomic Prediction Enhanced Sparse Testing for Multi-environment Trials. G3: Genes | Genomes | Genetics, 10(8), 2725–2739. "),
+                    tags$i(tags$a(href = "https://doi.org/10.1534/g3.120.401349", "https://doi.org/10.1534/g3.120.401349", target = "_blank")))
+        ),
+        tags$li(style = "margin-bottom: 12px;",
+          tags$span(tags$i("Van Ginkel et al. (2002). Guide to bread wheat breeding at CIMMYT. Wheat Special Report No. 5. (Revised edition Mexico, D.F.) CIMMYT. "),
+                    tags$i(tags$a(href = "http://hdl.handle.net/10883/644", "http://hdl.handle.net/10883/644", target = "_blank")))
+        ),
+      )
     )
   )
 }
 
-#' Results panel UI (five sub-tabs)
+#' Results panel UI (five vertically stacked sections)
 #'
 #' @param id character — module namespace id
-#' @return shiny.tag — a tabsetPanel
-#' @details Sub-tab order is fixed: Diagnostics Summary, Plot Budget & Entry ID
+#' @return shiny.tag — a div container with class 'results-single-page'
+#' @details Section order is fixed: Diagnostics Summary, Plot Budget & Entry ID
 #'   Ranges, Field Layout, DiGGer Script, Downloads
 #'   (Req 11.1, 12.1, 19.5, 19.6, 20.1, 20.2, 20.4, 21.1-21.5, 21.7).
 results_panel_ui <- function(id) {
   ns <- NS(id)
 
-  tabsetPanel(
-    id = ns("results_tabs"),
+  tags$div(
+    class = "results-single-page",
 
     # -- 1. Diagnostics Summary ----------------------------------------------
-    tabPanel(
-      "Diagnostics Summary",
+    tags$div(
+      class = "results-section",
+      tags$h3("Diagnostics Summary"),
       tags$div(
         class = "panel-block",
         uiOutput(ns("overall_status")),
@@ -2271,8 +2348,9 @@ results_panel_ui <- function(id) {
     ),
 
     # -- 2. Plot Budget & Entry ID Ranges ------------------------------------
-    tabPanel(
-      "Plot Budget & Entry ID Ranges",
+    tags$div(
+      class = "results-section",
+      tags$h3("Plot Budget & Entry ID Ranges"),
       tags$div(
         class = "panel-block",
         tags$h4("Plot budget per location"),
@@ -2295,8 +2373,9 @@ results_panel_ui <- function(id) {
     ),
 
     # -- 3. Field Layout -----------------------------------------------------
-    tabPanel(
-      "Field Layout",
+    tags$div(
+      class = "results-section",
+      tags$h3("Field Layout"),
       tags$div(
         class = "panel-block",
         selectInput(ns("layout_location"), "Location", choices = NULL),
@@ -2307,8 +2386,9 @@ results_panel_ui <- function(id) {
     ),
 
     # -- 4. DiGGer Script ----------------------------------------------------
-    tabPanel(
-      "DiGGer Script",
+    tags$div(
+      class = "results-section",
+      tags$h3("DiGGer Script"),
       tags$div(
         class = "panel-block script-box",
         tags$div(
@@ -2359,8 +2439,9 @@ results_panel_ui <- function(id) {
     ),
 
     # -- 5. Downloads --------------------------------------------------------
-    tabPanel(
-      "Downloads",
+    tags$div(
+      class = "results-section",
+      tags$h3("Downloads"),
       tags$div(
         class = "panel-block",
         uiOutput(ns("downloads_message")),
@@ -2853,11 +2934,14 @@ scenario_panel_server <- function(id) {
         class = "ui-ok",
         sprintf(
           paste("%s entries loaded. Available seed ranges from %s to %s g.",
-                "%s unique families."),
+                "%s unique families (family size vary from %s to %s, avg: %s)."),
           format_scenario_number(s$n),
           format_scenario_number(s$min_available),
           format_scenario_number(s$max_available),
-          format_scenario_number(s$n_families)
+          format_scenario_number(s$n_families),
+          format_scenario_number(s$min_families),
+          format_scenario_number(s$max_families),
+          format_scenario_number(s$avg_families)
         )
       )
     })
@@ -2911,6 +2995,41 @@ scenario_panel_server <- function(id) {
       )
     })
 
+    scenarios   <- reactive(possible_scenarios(params()))
+    output$scenario_options_error <- renderUI({ req(nrow(scenarios()) == 0); tags$div(class = "ui-error", paste("No valid scenarios could be computed from the current parameters."))})
+
+    # Track previous scenario signatures so we only reset when options actually change
+    last_scenarios <- reactiveVal(NULL)
+    
+    # Update slider bounds when scenarios change, preserving the current selection if possible
+    observeEvent(scenarios(), {
+      req(scenarios())
+      df <- scenarios()
+      n_rows <- nrow(df)
+      req(n_rows > 0)
+      
+      # Only reset if the scenario dataset is genuinely different
+      if (!identical(last_scenarios(), df)) {
+        last_scenarios(df)
+        
+        mid_scenario <- (n_rows %/% 2) + 1
+        
+        updateSliderInput(session, "scenario_index", min = 1, max = n_rows, value = mid_scenario, step = 1)
+      }
+    })
+
+    # Update the non-editable numeric inputs on slider change
+    observeEvent(input$scenario_index, {
+      req(scenarios(), input$scenario_index)
+      idx <- input$scenario_index
+      
+      df <- scenarios()
+      req(idx <= nrow(df))
+      
+      updateNumericInput(session, "cross_entries", value = df$cross_options[idx])
+      updateNumericInput(session, "prep_per_loc",   value = df$prep_options[idx])
+    }, ignoreInit = TRUE)
+    
     derived     <- reactive(compute_scenario(params()))
     gates       <- reactive(validate_plot_budget(params(), derived()))
     consistency <- reactive(validate_parameter_consistency(params(), derived()))
@@ -2970,8 +3089,8 @@ scenario_panel_server <- function(id) {
         is.finite(d$replication_ratio) && is.finite(d$connectivity_ratio)
       tagList(
         tags$div(class = "ui-note", d$block_size_summary),
-        srv_messages(ratio_errors(), "ui-error"),
         srv_messages(gates()$warnings, "ui-warn"),
+        srv_messages(ratio_errors(), "ui-error"),
         if (ratio_ok) {
           tags$div(class = "ui-ok", sprintf(
             "Replication Ratio (%.1f%%) and Connectivity Ratio (%.1f%%) both meet the %d%% minimum.",
@@ -3729,7 +3848,8 @@ results_panel_server <- function(id, params, derived, allocation, randomization)
 # (Req 1.1, 1.2, 2.1, 2.2).
 
 ui <- fluidPage(
-
+  icarda_favicon_tag(),
+  
   title = "Sparse Spatial P-Rep MET Design",
 
   shinyjs::useShinyjs(),
