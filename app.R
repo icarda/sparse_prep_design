@@ -2179,10 +2179,12 @@ scenario_panel_ui <- function(id) {
       numericInput(ns("locations"), SCENARIO_LABELS[["locations"]],
                    value = 7, min = PARAM_MINIMUMS$locations, step = 1),
       uiOutput(ns("error_locations")),
+      uiOutput(ns("entries_for_locations")),
       
       numericInput(ns("blocks"), SCENARIO_LABELS[["blocks"]],
                    value = 2, min = PARAM_MINIMUMS$blocks, step = 1),
       uiOutput(ns("error_blocks")),
+      uiOutput(ns("entries_for_blocks")),
       
       # -- 9-10. Field and block dimensions -------------------------------------
       tags$div(
@@ -2288,8 +2290,8 @@ scenario_panel_ui <- function(id) {
         class = "ui-warn",
         tags$strong("Generate Design is slow by design."), " ",
         paste(
-          "The spatial optimisation takes several minutes per location \u2014 around",
-          "4 minutes on a typical machine \u2014 so a 7-location run needs roughly",
+          "The spatial optimisation takes several minutes per location - around",
+          "4 minutes on a typical machine - so a 7-location run needs roughly",
           "half an hour. The progress message names the location being processed.",
           "The app has not hung; leave it running."
         )
@@ -2303,10 +2305,10 @@ scenario_panel_ui <- function(id) {
       
       tags$ul(
         tags$li(style = "margin-bottom: 12px;",
-          tags$i("Cullis et al. (2006). On the Design of Early Generation Variety Trials with Correlated Data. Journal of Agricultural, Biological, and Environmental Statistics, 11(4), 381–393.")
+          tags$i("Cullis et al. (2006). On the Design of Early Generation Variety Trials with Correlated Data. Journal of Agricultural, Biological, and Environmental Statistics, 11(4), 381-393.")
         ),
         tags$li(style = "margin-bottom: 12px;",
-          tags$span(tags$i("Jarquin et al. (2020). Genomic Prediction Enhanced Sparse Testing for Multi-environment Trials. G3: Genes | Genomes | Genetics, 10(8), 2725–2739. "),
+          tags$span(tags$i("Jarquin et al. (2020). Genomic Prediction Enhanced Sparse Testing for Multi-environment Trials. G3: Genes | Genomes | Genetics, 10(8), 2725-2739. "),
                     tags$i(tags$a(href = "https://doi.org/10.1534/g3.120.401349", "https://doi.org/10.1534/g3.120.401349", target = "_blank")))
         ),
         tags$li(style = "margin-bottom: 12px;",
@@ -2412,7 +2414,7 @@ results_panel_ui <- function(id) {
           "  var done = function (ok) {\n",
           "    var original = btn.getAttribute('data-label') || btn.innerHTML;\n",
           "    btn.setAttribute('data-label', original);\n",
-          "    btn.innerHTML = ok ? 'Copied' : 'Copy failed \\u2014 select the text and copy manually';\n",
+          "    btn.innerHTML = ok ? 'Copied' : 'Copy failed - select the text and copy manually';\n",
           "    setTimeout(function () { btn.innerHTML = original; }, 2500);\n",
           "  };\n",
           "  if (navigator.clipboard && navigator.clipboard.writeText) {\n",
@@ -2461,7 +2463,7 @@ results_panel_ui <- function(id) {
 
         tags$div(
           class = "download-group",
-          tags$h5("Single location \u2014 field book"),
+          tags$h5("Single location - field book"),
           ui_hint("Pick the location, then download that location's field book."),
           selectInput(ns("download_location"), "Location", choices = NULL),
           downloadButton(ns("download_field_book"), "Field Book CSV")
@@ -2469,7 +2471,7 @@ results_panel_ui <- function(id) {
 
         tags$div(
           class = "download-group",
-          tags$h5("Single location \u2014 layout image"),
+          tags$h5("Single location - layout image"),
           ui_hint("Pick the location, then download that location's layout as a PNG."),
           selectInput(ns("download_layout_location"), "Location", choices = NULL),
           downloadButton(ns("download_layout_png"), "Layout PNG")
@@ -2554,7 +2556,7 @@ about_help_ui <- function() {
     # -- License -------------------------------------------------------------
     tags$h3("License"),
     tags$p(
-      tags$strong("GPL-3.0"), " \u2014 GNU General Public License, version 3."
+      tags$strong("GPL-3.0"), " - GNU General Public License, version 3."
     ),
     tags$p(paste(
       "Derivative works must also be released under GPL-3.0. Redistribution,",
@@ -2593,17 +2595,17 @@ about_help_ui <- function() {
     ),
 
     tags$h4("Input file formats"),
-    tags$p(tags$strong("Entries file"), " \u2014 CSV with three mandatory columns:"),
+    tags$p(tags$strong("Entries file"), " - CSV with three mandatory columns:"),
     tags$ul(
-      tags$li(tags$strong("Code"), " \u2014 the unique entry identifier."),
-      tags$li(tags$strong("SELHIS"), " \u2014 the selection history, hyphen-separated. The first two hyphen-separated segments define the Family."),
-      tags$li(tags$strong("Available"), " \u2014 the available seed quantity in grams, a positive number.")
+      tags$li(tags$strong("Code"), " - the unique entry identifier."),
+      tags$li(tags$strong("SELHIS"), " - the selection history, hyphen-separated. The first two hyphen-separated segments define the Family."),
+      tags$li(tags$strong("Available"), " - the available seed quantity in grams, a positive number.")
     ),
     tags$div(
       class = "ui-example",
       "Code, SELHIS, Available\nFFM2600001, ICB23-0484-9765SBR-9718SBR-16392SBR, 142"
     ),
-    tags$p(tags$strong("Pedigree matrix"), " \u2014 ",
+    tags$p(tags$strong("Pedigree matrix"), " - ",
            sprintf(paste("CSV or gzip-compressed CSV (.csv.gz) up to %d MB.",
                          "A square, symmetric numeric matrix of pedigree similarity",
                          "coefficients. The first column holds the row names and the",
@@ -2762,9 +2764,9 @@ SCENARIO_INPUT_SPECS <- list(
 
 #' The three plot-budget gates, captioned for the status block
 GATE_LABELS <- list(
-  G1 = "G1 \u2014 Required plots per location equals Field Plots",
-  G2 = "G2 \u2014 Block Rows x Block Columns x Augmented blocks equals Field Plots",
-  G3 = "G3 \u2014 (Test entries - Entries cross locations) divides evenly by Locations"
+  G1 = "G1 - Required plots per location equals Field Plots",
+  G2 = "G2 - Block Rows x Block Columns x Augmented blocks equals Field Plots",
+  G3 = "G3 - (Test entries - Entries cross locations) divides evenly by Locations"
 )
 
 #' Read one pedigree upload into a named numeric matrix
@@ -2995,7 +2997,16 @@ scenario_panel_server <- function(id) {
       )
     })
 
-    scenarios   <- reactive(possible_scenarios(params()))
+    output$entries_for_locations <- renderUI({ 
+      valid_entries <- nrow(entries_state()$data[entries_state()$data$Available >= (params()$seed_per_plot * params()$locations),])
+      tags$div(class = "ui-note", paste(valid_entries, "entries have sufficient seed for cross locations."))
+    })
+    output$entries_for_blocks <- renderUI({ 
+      valid_entries <- nrow(entries_state()$data[entries_state()$data$Available >= (params()$seed_per_plot * params()$blocks),])
+      tags$div(class = "ui-note", paste(valid_entries, "entries have sufficient seed for p-rep per location."))
+    })
+
+    scenarios <- reactive(possible_scenarios(params()))
     output$scenario_options_error <- renderUI({ req(nrow(scenarios()) == 0); tags$div(class = "ui-error", paste("No valid scenarios could be computed from the current parameters."))})
 
     # Track previous scenario signatures so we only reset when options actually change
@@ -3111,7 +3122,7 @@ scenario_panel_server <- function(id) {
         tagList(
           tags$div(
             class = if (passed) "gate-pass" else "gate-fail",
-            paste0(if (passed) "PASS \u2014 " else "FAIL \u2014 ", GATE_LABELS[[key]])
+            paste0(if (passed) "PASS - " else "FAIL - ", GATE_LABELS[[key]])
           ),
           srv_messages(grep(paste0("^Gate ", key), errs, value = TRUE), "ui-error")
         )
@@ -3202,10 +3213,10 @@ scenario_panel_server <- function(id) {
       out <- character(0)
 
       if (is.null(entries_state())) {
-        out <- c(out, "No entries file loaded \u2014 upload the entries CSV.")
+        out <- c(out, "No entries file loaded - upload the entries CSV.")
       }
       if (is.null(pedigree_state())) {
-        out <- c(out, "No pedigree matrix loaded \u2014 upload the pedigree CSV or CSV.GZ.")
+        out <- c(out, "No pedigree matrix loaded - upload the pedigree CSV or CSV.GZ.")
       }
 
       errs <- input_errors()
@@ -3238,7 +3249,7 @@ scenario_panel_server <- function(id) {
     output$action_blockers <- renderUI({
       items <- blockers()
       allocation_note <- paste(
-        "Generate Design also needs a completed allocation \u2014 run Allocate",
+        "Generate Design also needs a completed allocation - run Allocate",
         "Entries first."
       )
       if (length(items) == 0) {
@@ -3610,18 +3621,18 @@ results_panel_server <- function(id, params, derived, allocation, randomization)
 
       if (!is.finite(plots_total) || !is.finite(required)) {
         return(tags$div(class = "ui-note", paste(
-          "The Plots total cannot be computed yet \u2014 upload an entries file and",
+          "The Plots total cannot be computed yet - upload an entries file and",
           "complete the scenario inputs."
         )))
       }
 
       if (isTRUE(all.equal(plots_total, required))) {
         tags$div(class = "ui-ok", sprintf(
-          "PASS \u2014 Plots total %s equals Required plots per location (%s).",
+          "PASS - Plots total %s equals Required plots per location (%s).",
           format_scenario_number(plots_total), format_scenario_number(required)))
       } else {
         tags$div(class = "ui-error", sprintf(
-          "FAIL \u2014 Plots total %s does not equal Required plots per location (%s); difference %s.",
+          "FAIL - Plots total %s does not equal Required plots per location (%s); difference %s.",
           format_scenario_number(plots_total), format_scenario_number(required),
           format_scenario_number(plots_total - required)))
       }
@@ -3734,7 +3745,7 @@ results_panel_server <- function(id, params, derived, allocation, randomization)
 
       tagList(
         tags$div(class = "ui-ok", sprintf(
-          "%d location%s randomized \u2014 downloads are available.",
+          "%d location%s randomized - downloads are available.",
           length(r$field_books), if (length(r$field_books) == 1) "" else "s")),
         srv_messages(unlist(r$errors, use.names = FALSE), "ui-warn"),
         srv_messages(archive_error(), "ui-error")
@@ -3859,7 +3870,7 @@ ui <- fluidPage(
   tags$div(
     class = "app-header",
     icarda_logo_tag(),
-    tags$h2("Sparse Spatial P-Rep MET Design")
+    tags$h2("Sparse Spatial P-Rep MET Design (version 2.0)")
   ),
 
   tabsetPanel(
@@ -4014,7 +4025,7 @@ server <- function(input, output, session) {
         # on and the detail reports what is already done.
         message = sprintf("Processing location %d of %d", next_loc, as.integer(total)),
         detail  = sprintf(
-          paste("%d of %d locations complete \u2014 elapsed %s.",
+          paste("%d of %d locations complete - elapsed %s.",
                 "Each location takes several minutes; the app has not hung."),
           as.integer(current), as.integer(total), srv_format_elapsed(elapsed))
       )
