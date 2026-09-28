@@ -52,4 +52,5 @@ This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**
 You may use, modify, and redistribute this software under the terms of this license. Any derivative work must also be released under GPL-3.0. See the `LICENSE` file for the full license text.
 
 ## User Interface
+The single-file Shiny app brings scenario configuration, pedigree-aware entry allocation, and DiGGer spatial randomization into one interactive workflow. Users can explore feasible combinations of entries shared across locations and partially replicated entries per location, while the app updates plot requirements, replication, and connectivity checks as settings change. After uploading an entries file and a pedigree similarity matrix, the app can allocate entries, generate designs, and download field books and layouts.
 ![Shiny app Interface](screenshot.png)
