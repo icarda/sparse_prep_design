@@ -284,7 +284,7 @@ possible_scenarios <- function(params) {
   if (!is.na(max_cross)) {
     for (cross in 1:max_cross) {
       prep <- (locations * ((field_rows * field_cols) - (blocks * check_entries)) - test_entries - cross * (locations - 1)) / (locations * (blocks - 1))
-      if (prep %% 1 == 0) scenarios <- rbind(scenarios, data.frame(cross_options = cross, prep_options = prep))
+      if (prep %% 1 == 0 && prep > 0 && cross > 0) scenarios <- rbind(scenarios, data.frame(cross_options = cross, prep_options = prep))
     }
   }
 
@@ -3015,16 +3015,20 @@ scenario_panel_server <- function(id) {
       req(scenarios())
       df <- scenarios()
       n_rows <- nrow(df)
-      req(n_rows > 0)
 
-      # Only reset if the scenario dataset is genuinely different
-      if (!identical(last_scenarios(), df)) {
-        last_scenarios(df)
+      if (n_rows > 0) {
+        # Only reset if the scenario dataset is genuinely different
+        if (!identical(last_scenarios(), df)) {
+          last_scenarios(df)
 
-        mid_scenario <- (n_rows %/% 2) + 1
+          mid_scenario <- (n_rows %/% 2) + 1
 
-        updateSliderInput(session, "scenario_index", min = 1, max = n_rows, value = mid_scenario, step = 1)
+          updateSliderInput(session, "scenario_index", min = 1, max = n_rows, value = mid_scenario, step = 1)
+        }
+      } else {
+        updateSliderInput(session, "scenario_index", min = 0, max = 0, value = 0, step = 1)
       }
+
     })
 
     # Update the non-editable numeric inputs on slider change
