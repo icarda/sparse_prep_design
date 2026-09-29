@@ -50,7 +50,8 @@ SCENARIO_LABELS <- c(
   check_entries       = "Check entries",
   cross_entries       = "Entries cross locations",
   prep_per_loc        = "P-Rep test entries per location",
-  blocks              = "Augmented blocks per location"
+  blocks              = "Augmented blocks per location",
+  max_interchanges    = "Number of treatment interchanges to test per location"
 )
 
 # Above this plot count the layout stops drawing per-cell entry labels, so that
@@ -277,9 +278,9 @@ possible_scenarios <- function(params) {
   field_cols    <- scenario_num(params$field_cols)
 
   max_cross <- floor((locations * ((field_rows * field_cols) - (blocks * check_entries)) - locations * (blocks - 1) - test_entries) / (locations - 1))
-  
+
   scenarios <- data.frame(cross_options = integer(0), prep_options = integer(0))
-  
+
   if (!is.na(max_cross)) {
     for (cross in 1:max_cross) {
       prep <- (locations * ((field_rows * field_cols) - (blocks * check_entries)) - test_entries - cross * (locations - 1)) / (locations * (blocks - 1))
@@ -288,7 +289,7 @@ possible_scenarios <- function(params) {
   }
 
   return(scenarios)
-}  
+}
 
 #' Build the entry-type plot budget table (4 rows)
 #'
@@ -595,7 +596,7 @@ validate_plot_budget <- function(params, derived) {
       ))
     }
   }
-  
+
   if (!is.na(connectivity_pct)) {
     if (connectivity_pct < THRESHOLD_CONNECTIVITY_ERROR) {
       errors <- c(errors, sprintf(
@@ -1355,13 +1356,15 @@ randomize_location <- function(params, derived, location, digger_fn = NULL) {
   common        <- as_whole_count(derived$common_per_loc)
   field_plots   <- as_whole_count(derived$field_plots)
   block_plots   <- as_whole_count(derived$block_plots)
+  max_interchanges <- as_whole_count(params$max_interchanges)
 
   counts <- c(cross_entries = cross_entries, prep_per_loc = prep_per_loc,
               check_entries = check_entries, blocks = blocks,
               field_rows = field_rows, field_cols = field_cols,
               block_rows = block_rows, block_cols = block_cols,
               pure_test = pure_test, common_per_loc = common,
-              field_plots = field_plots, block_plots = block_plots)
+              field_plots = field_plots, block_plots = block_plots,
+              max_interchanges = max_interchanges)
   if (anyNA(counts)) {
     return(fail(sprintf(
       "Cannot randomize location %s: %s must be whole numbers before a design can be generated.",
@@ -1425,7 +1428,8 @@ randomize_location <- function(params, derived, location, digger_fn = NULL) {
               columnsInDesign    = field_cols,
               blockSequence      = list(c(block_rows, block_cols)),
               treatName          = trt_name,
-              treatRepPerRep     = trt_rep),
+              treatRepPerRep     = trt_rep,
+              maxInterchanges    = max_interchanges),
     error = function(e) e
   )
   if (inherits(design, "error") || inherits(design, "condition")) {
@@ -1605,6 +1609,7 @@ generate_digger_script <- function(params, derived, location) {
     paste0("# ", DIGGER_URL),
     "library(DiGGer)",
     "",
+    paste0("max.interchanges <- ", fmt(max_interchanges)),
     paste0("entries <- ", fmt(entries)),
     paste0("field.rows <- ", fmt(field_rows)),
     paste0("field.cols <- ", fmt(field_cols)),
@@ -1622,7 +1627,8 @@ generate_digger_script <- function(params, derived, location) {
     "                    columnsInDesign = field.cols,",
     "                    blockSequence = list(c(block.rows, block.cols)),",
     "                    treatName = trt.name, ",
-    "                    treatRepPerRep = trt.rep)",
+    "                    treatRepPerRep = trt.rep,",
+    "                    maxInterchanges = max.interchanges)",
     "",
     "layout <- getDesign(design)",
     "layout <- sapply(layout, function(x) trt.name[match(x, 1:entries)])",
@@ -2180,12 +2186,12 @@ scenario_panel_ui <- function(id) {
                    value = 7, min = PARAM_MINIMUMS$locations, step = 1),
       uiOutput(ns("error_locations")),
       uiOutput(ns("entries_for_locations")),
-      
+
       numericInput(ns("blocks"), SCENARIO_LABELS[["blocks"]],
                    value = 2, min = PARAM_MINIMUMS$blocks, step = 1),
       uiOutput(ns("error_blocks")),
       uiOutput(ns("entries_for_blocks")),
-      
+
       # -- 9-10. Field and block dimensions -------------------------------------
       tags$div(
         class = "panel-block",
@@ -2213,7 +2219,7 @@ scenario_panel_ui <- function(id) {
         uiOutput(ns("error_block_rows")),
         uiOutput(ns("error_block_cols"))
       ),
-      
+
       # -- 13. Seed grams per plot ----------------------------------------------
       # value = NULL so the control starts empty (Req 10.1).
       numericInput(ns("seed_per_plot"), "Seed grams per plot",
@@ -2227,7 +2233,7 @@ scenario_panel_ui <- function(id) {
       numericInput(ns("check_entries"), SCENARIO_LABELS[["check_entries"]],
                    value = 8, min = PARAM_MINIMUMS$check_entries, step = 1),
       uiOutput(ns("error_check_entries")),
-      
+
       # -- 14. Check entry names ----------------------------------------------
       textInput(ns("check_names"), "Check entry names (optional)",
                 value = "", placeholder = "Cham1, Cham3, Douma1"),
@@ -2246,9 +2252,9 @@ scenario_panel_ui <- function(id) {
           tags$span("More cross locations entries")
         )
       ),
-      
+
       uiOutput(ns("scenario_options_error")),
-      
+
       fluidRow(
         column(6, tagAppendAttributes(
           numericInput(ns("cross_entries"), SCENARIO_LABELS[["cross_entries"]], value = 0),
@@ -2261,7 +2267,7 @@ scenario_panel_ui <- function(id) {
       ),
       uiOutput(ns("error_cross_entries")),
       uiOutput(ns("error_prep_per_loc")),
-      
+
       # -- 11. Derived values ---------------------------------------------------
       # Captions are the verbatim Scenario Builder labels (Req 6.8). They are
       # static; only the numbers come from the server.
@@ -2283,26 +2289,17 @@ scenario_panel_ui <- function(id) {
     tags$div(
       class = "panel-block",
       tags$h4("5. Run"),
+      numericInput(ns("max_interchanges"), SCENARIO_LABELS[["max_interchanges"]], value = 1000),
       actionButton(ns("allocate_btn"), "Allocate Entries", class = "btn-success"),
       tags$span(" "),
       actionButton(ns("generate_btn"), "Generate Design", class = "btn-primary"),
-      tags$div(
-        class = "ui-warn",
-        tags$strong("Generate Design is slow by design."), " ",
-        paste(
-          "The spatial optimisation takes several minutes per location - around",
-          "4 minutes on a typical machine - so a 7-location run needs roughly",
-          "half an hour. The progress message names the location being processed.",
-          "The app has not hung; leave it running."
-        )
-      ),
       uiOutput(ns("action_blockers"))
     ),
-    
+
     tags$div(
       class = "panel-block",
       tags$h4("6. Referencies"),
-      
+
       tags$ul(
         tags$li(style = "margin-bottom: 12px;",
           tags$i("Cullis et al. (2006). On the Design of Early Generation Variety Trials with Correlated Data. Journal of Agricultural, Biological, and Environmental Statistics, 11(4), 381-393.")
@@ -2993,15 +2990,16 @@ scenario_panel_server <- function(id) {
         field_cols    = input$field_cols,
         block_rows    = input$block_rows,
         block_cols    = input$block_cols,
-        seed_per_plot = input$seed_per_plot
+        seed_per_plot = input$seed_per_plot,
+        max_interchanges = input$max_interchanges
       )
     })
 
-    output$entries_for_locations <- renderUI({ 
+    output$entries_for_locations <- renderUI({
       valid_entries <- nrow(entries_state()$data[entries_state()$data$Available >= (params()$seed_per_plot * params()$locations),])
       tags$div(class = "ui-note", paste(valid_entries, "entries have sufficient seed for cross locations."))
     })
-    output$entries_for_blocks <- renderUI({ 
+    output$entries_for_blocks <- renderUI({
       valid_entries <- nrow(entries_state()$data[entries_state()$data$Available >= (params()$seed_per_plot * params()$blocks),])
       tags$div(class = "ui-note", paste(valid_entries, "entries have sufficient seed for p-rep per location."))
     })
@@ -3011,20 +3009,20 @@ scenario_panel_server <- function(id) {
 
     # Track previous scenario signatures so we only reset when options actually change
     last_scenarios <- reactiveVal(NULL)
-    
+
     # Update slider bounds when scenarios change, preserving the current selection if possible
     observeEvent(scenarios(), {
       req(scenarios())
       df <- scenarios()
       n_rows <- nrow(df)
       req(n_rows > 0)
-      
+
       # Only reset if the scenario dataset is genuinely different
       if (!identical(last_scenarios(), df)) {
         last_scenarios(df)
-        
+
         mid_scenario <- (n_rows %/% 2) + 1
-        
+
         updateSliderInput(session, "scenario_index", min = 1, max = n_rows, value = mid_scenario, step = 1)
       }
     })
@@ -3033,14 +3031,14 @@ scenario_panel_server <- function(id) {
     observeEvent(input$scenario_index, {
       req(scenarios(), input$scenario_index)
       idx <- input$scenario_index
-      
+
       df <- scenarios()
       req(idx <= nrow(df))
-      
+
       updateNumericInput(session, "cross_entries", value = df$cross_options[idx])
       updateNumericInput(session, "prep_per_loc",   value = df$prep_options[idx])
     }, ignoreInit = TRUE)
-    
+
     derived     <- reactive(compute_scenario(params()))
     gates       <- reactive(validate_plot_budget(params(), derived()))
     consistency <- reactive(validate_parameter_consistency(params(), derived()))
@@ -3860,7 +3858,7 @@ results_panel_server <- function(id, params, derived, allocation, randomization)
 
 ui <- fluidPage(
   icarda_favicon_tag(),
-  
+
   title = "Sparse Spatial P-Rep MET Design",
 
   shinyjs::useShinyjs(),
