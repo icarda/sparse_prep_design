@@ -1573,6 +1573,7 @@ generate_digger_script <- function(params, derived, location) {
   block_plots   <- derived$block_plots
   entries       <- derived$common_per_loc + cross_entries + check_entries
   loc           <- fmt(scenario_num(location))
+  max_interchanges <- scenario_num(params$max_interchanges)
 
   labels <- c(cross = "Test Entries Cross Locations",
               prep  = "Replicated Test Entries in P-Rep Design",
